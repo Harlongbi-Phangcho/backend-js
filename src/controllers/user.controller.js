@@ -2,7 +2,10 @@ import { response } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.models.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  deleteFromCloudinary,
+  uploadOnCloudinary,
+} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -34,7 +37,6 @@ const registerUser = asyncHandler(async (req, res) => {
   // remove password and refresh token from response
   // check for user creation
   // return response with user details and success message
-
   const { fullName, username, email, password } = req.body;
 
   if (
@@ -277,18 +279,23 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file.path;
+  const avatarLocalPath = req.file?.path;
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar local path is missing");
   }
 
+  // keep old avatar url before update
+  const oldAvatarUrl = req.user?.avatar;
+
+  // upload new avatar first
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
-  if (!avatar.url) {
+  if (!avatar?.url) {
     throw new ApiError(400, "Error while uploading an avatar");
   }
 
+  // update user document with new avatar url
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -299,24 +306,37 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     { new: true }
   ).select("-password");
 
+  // extract old public_id
+  const oldAvatarPublicId = oldAvatarUrl.split("/").slice(-1)[0].split(".")[0];
+
+  // delete old avatar
+  if (oldAvatarPublicId) {
+    await deleteFromCloudinary(oldAvatarPublicId);
+  }
+
   return res
     .status(200)
     .json(new ApiResponse(200, user, "Avatar updated successfully"));
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
-  const coverImageLocalPath = req.file.path;
+  const coverImageLocalPath = req.file?.path;
 
   if (!coverImageLocalPath) {
     throw new ApiError(400, "Cover Image local path is missing");
   }
 
+  // keep old cover image url before update
+  const oldCoverImageUrl = req.user?.coverImage;
+
+  // upload new cover image first
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
-  if (!coverImage.url) {
+  if (!coverImage?.url) {
     throw new ApiError(400, "Error while uploading a cover image");
   }
 
+  // update user document with new cover image url
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -327,9 +347,93 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     { new: true }
   ).select("-password");
 
+  // extract old public_id
+  const oldCoverImagePublicId = oldCoverImageUrl
+    .split("/")
+    .slice(-1)[0]
+    .split(".")[0];
+
+  // delete old cover image
+  if (oldCoverImagePublicId) {
+    await deleteFromCloudinary(oldCoverImagePublicId);
+  }
+
   return res
     .status(200)
     .json(new ApiResponse(200, user, "Cover image updated successfully"));
+});
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username?.trim()) {
+    throw new ApiError(400, "Username is missing");
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribeTo",
+      },
+    },
+
+    {
+      $addFields: {
+        subscriberCount: {
+          $size: "$subscribers",
+        },
+        channelsSubscribeToCount: {
+          $size: "$subscribeTo",
+        },
+        isSubscribed: {
+          $con: {
+            if: {$in: [req.user?._id, "$subscribers.subscriber"]},
+            then: true,
+            else: false
+          }
+        }
+      },
+    },
+
+
+    {
+      $project: {
+        fullName: 1,
+        username: 1,
+        subscriberCount: 1,
+        channelsSubscribeToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+      }
+    }
+
+  ]);
+
+  if(!channel?.length) {
+    throw new ApiError(404, "Channel does not exists")
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, channel[0], "User channel fetched successfully")
+  )
 });
 
 export {
@@ -341,5 +445,6 @@ export {
   getCurrentUser,
   updateAccountDetails,
   updateUserAvatar,
-  updateUserCoverImage
+  updateUserCoverImage,
+  getUserChannelProfile,
 };
