@@ -8,6 +8,7 @@ import {
 } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -162,8 +163,8 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: {
-        refreshToken: undefined,
+      $unset: {
+        refreshToken: 1, // this removes the field from document
       },
     },
     {
@@ -197,7 +198,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       process.env.REFRESH_TOKEN_SECRET
     );
 
-    const user = await User.findById(decodeToken?._id);
+    const user = await User.findById(decodedToken?._id);
 
     if (!user) {
       throw new ApiError(401, "Invalid refreshToken");
@@ -341,7 +342,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     req.user?._id,
     {
       $set: {
-        coverImage: cover.url,
+        coverImage: coverImage.url,
       },
     },
     { new: true }
@@ -402,7 +403,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
           $size: "$subscribeTo",
         },
         isSubscribed: {
-          $con: {
+          $cond: {
             if: {$in: [req.user?._id, "$subscribers.subscriber"]},
             then: true,
             else: false
