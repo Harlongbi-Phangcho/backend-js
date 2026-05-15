@@ -95,7 +95,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
 
- // validate title and description
+  // validate title and description
   if (!title?.trim() || !description?.trim()) {
     throw new ApiError(400, "Title and description are required");
   }
@@ -147,17 +147,68 @@ const publishAVideo = asyncHandler(async (req, res) => {
   return res
     .status(201)
     .json(new ApiResponse(201, newVideo, "Video published successfully"));
-
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  //TODO: get video by id
+
+  // validate videoId
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid videoId");
+  }
+
+  // aggregate video with user details using $lookup
+  const video = await Video.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(videoId),
+        isPublished: true,
+      },
+    },
+
+    // lookup owner details
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              fullName: 1,
+              username: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+
+    {
+      $addFields: {
+        owner: {
+          $first: "$owner",
+        },
+      },
+    },
+  ]);
+
+  if (!video.length === 0) {
+    throw new ApiError(404, "Video not found");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, video[0], "Video fetched successfully"));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   //TODO: update video details like title, description, thumbnail
+  // validate videoId
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid videoId");
+  }
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
