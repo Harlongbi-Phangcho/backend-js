@@ -73,11 +73,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
         },
       },
     },
-   
+
     {
       $sort: sortCondition,
     },
-  
+
     {
       $skip: (pageNumber - 1) * limitNumber,
     },
@@ -94,7 +94,48 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
+
   // TODO: get video, upload to cloudinary, create video
+  if ([title, description].some((field) => field.trim() === "")) {
+    throw new ApiError(400, "Title and description are required");
+  }
+
+  // check if video file and thumbnail are present
+  if (!req.files || !req.files.videoFile || !req.files.thumbnail) {
+    throw new ApiError(400, "Video file and thumbnail are required");
+  }
+
+  const videoFilePath = req.files?.videoFile[0]?.path;
+  const thumbnailPath = req.files?.thumbnail[0]?.path;
+
+  if (!videoFilePath) {
+    throw new ApiError(400, "Video file path is required");
+  }
+  if (!thumbnailPath) {
+    throw new ApiError(400, "thumbnail path is required");
+  }
+
+  const uploadedVideoFile = await uploadOnCloudinary(videoFilePath);
+  const uploadedThumbnail = await uploadOnCloudinary(thumbnailPath);
+
+  console.log("req.user: ", req.user)
+
+  if (!uploadedVideoFile) {
+    throw new ApiError(400, "Video file is required");
+  }
+  if (!uploadedThumbnail) {
+    throw new ApiError(400, "thumbnail file is required");
+  }
+
+  const newVideo = await Video.create({
+    title,
+    description,
+    videoFile: uploadedVideoFile.secure_url,
+    thumbnail: uploadedThumbnail.secure_url,
+    owner: req.user._id,
+    duration: uploadedVideoFile.duration || 0, // set duration if available, otherwise default to 0
+  });
+
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
