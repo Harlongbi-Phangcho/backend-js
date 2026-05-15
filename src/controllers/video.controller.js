@@ -86,7 +86,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
   ]);
 
-  // return videos
+  // return response
   return res
     .status(200)
     .json(new ApiResponse(200, videos, "Videos fetched successfully"));
@@ -95,19 +95,21 @@ const getAllVideos = asyncHandler(async (req, res) => {
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
 
-  // TODO: get video, upload to cloudinary, create video
-  if ([title, description].some((field) => field.trim() === "")) {
+ // validate title and description
+  if (!title?.trim() || !description?.trim()) {
     throw new ApiError(400, "Title and description are required");
   }
 
-  // check if video file and thumbnail are present
+  // validate files
   if (!req.files || !req.files.videoFile || !req.files.thumbnail) {
     throw new ApiError(400, "Video file and thumbnail are required");
   }
 
+  // get local path
   const videoFilePath = req.files?.videoFile[0]?.path;
   const thumbnailPath = req.files?.thumbnail[0]?.path;
 
+  // validate local path
   if (!videoFilePath) {
     throw new ApiError(400, "Video file path is required");
   }
@@ -115,18 +117,19 @@ const publishAVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "thumbnail path is required");
   }
 
+  // upload file to cloudinary
   const uploadedVideoFile = await uploadOnCloudinary(videoFilePath);
   const uploadedThumbnail = await uploadOnCloudinary(thumbnailPath);
 
-  console.log("req.user: ", req.user)
-
-  if (!uploadedVideoFile) {
-    throw new ApiError(400, "Video file is required");
+  // validate upload
+  if (!uploadedVideoFile.secure_url) {
+    throw new ApiError(400, "Video upload failed");
   }
-  if (!uploadedThumbnail) {
-    throw new ApiError(400, "thumbnail file is required");
+  if (!uploadedThumbnail.secure_url) {
+    throw new ApiError(400, "Thumbnail upload failed");
   }
 
+  // create video document in database
   const newVideo = await Video.create({
     title,
     description,
@@ -135,6 +138,15 @@ const publishAVideo = asyncHandler(async (req, res) => {
     owner: req.user._id,
     duration: uploadedVideoFile.duration || 0, // set duration if available, otherwise default to 0
   });
+
+  if (!newVideo) {
+    throw new ApiError(500, "Failed to publish video");
+  }
+
+  // sennd response
+  return res
+    .status(201)
+    .json(new ApiResponse(201, newVideo, "Video published successfully"));
 
 });
 
