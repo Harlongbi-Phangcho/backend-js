@@ -89,7 +89,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   // return response
   return res
     .status(200)
-    .json(new ApiResponse(200, videos, "Videos fetched successfully"));
+    .json(new ApiResponse(200, videos, "All videos fetched successfully"));
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
@@ -151,7 +151,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-
+  console.log("videoId", videoId);
   // validate videoId
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid videoId");
@@ -204,11 +204,58 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  //TODO: update video details like title, description, thumbnail
+  const { title, description } = req.body;
+  const thumbnailPath = req.file?.path;
+  let uploadedThumbnail;
+
   // validate videoId
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid videoId");
   }
+
+  // find video by id
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  if (video.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not authorized to update this video");
+  }
+
+  if(title !== undefined && !title.trim()) {
+    throw new ApiError(400, "Title cannot be empty");
+  }
+
+  if(description !== undefined && !description.trim()) {
+    throw new ApiError(400, "Description cannot be empty");
+  }
+
+  if (thumbnailPath) {
+    uploadedThumbnail = await uploadOnCloudinary(thumbnailPath);
+  }
+
+  if(!uploadedThumbnail?.secure_url) {
+    throw new ApiError(400, "Thumbnail upload failed");
+  }
+
+  // update only provided fields
+  if (title) {
+    video.title = title;
+  }
+  if (description) {
+    video.description = description;
+  }
+  if (uploadedThumbnail?.secure_url) {
+    video.thumbnail = uploadedThumbnail.secure_url;
+  }
+
+  await video.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, video, "Video updated successfully"));
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
