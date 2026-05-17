@@ -30,22 +30,16 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
 const registerUser = asyncHandler(async (req, res) => {
   // get user details from frontend
-  //validation - not empty
-  // check if user already exists: username, email
-  // check for images, check for avatar
-  // upload them to cloudinary, avatar
-  // create user object - create entry in db
-  // remove password and refresh token from response
-  // check for user creation
-  // return response with user details and success message
   const { fullName, username, email, password } = req.body;
 
+  //validation - not empty
   if (
     [fullName, email, username, password].some((field) => field?.trim() === "")
   ) {
     throw new ApiError(400, "All field are required");
   }
 
+  // check if user already exists: username, email
   const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
@@ -54,7 +48,9 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(409, "User with email or username already exists");
   }
 
+  // check for images, check for avatar
   const avatarLocalPath = req.files?.avatar[0]?.path;
+
   // const coverImageLocalPath = req.files?.coverImage[0]?.path;
   let coverImageLocalPath;
 
@@ -70,13 +66,16 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Avatar path  is required");
   }
 
+  // upload them to cloudinary, avatar
   const avatar = await uploadOnCloudinary(avatarLocalPath);
+
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) {
     throw new ApiError(400, "Avatar file is required");
   }
 
+  // create user object - create entry in db
   const user = await User.create({
     fullName,
     avatar: avatar.url,
@@ -86,14 +85,16 @@ const registerUser = asyncHandler(async (req, res) => {
     username: username.toLowerCase(),
   });
 
+  // remove password and refresh token from response
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
-
+  // check for user creation
   if (!createdUser) {
     throw new ApiError(500, "Something went wrong while registering the user");
   }
 
+  // return response with user details and success message
   return res
     .status(201)
     .json(new ApiResponse(200, createdUser, "User register successfully"));
@@ -404,14 +405,13 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         },
         isSubscribed: {
           $cond: {
-            if: {$in: [req.user?._id, "$subscribers.subscriber"]},
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
             then: true,
-            else: false
-          }
-        }
+            else: false,
+          },
+        },
       },
     },
-
 
     {
       $project: {
@@ -423,68 +423,74 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         avatar: 1,
         coverImage: 1,
         email: 1,
-      }
-    }
-
+      },
+    },
   ]);
 
-  if(!channel?.length) {
-    throw new ApiError(404, "Channel does not exists")
+  if (!channel?.length) {
+    throw new ApiError(404, "Channel does not exists");
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, channel[0], "User channel fetched successfully")
-  )
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, channel[0], "User channel fetched successfully")
+    );
 });
 
-const getWatchHistory = asyncHandler (async (req, res) => {
-     const user = await User.aggregate([
-        {
-          $match: {
-            _id: new mongoose.Types.ObjectId(req.user._id)
-          }
-        },
-        {
-          $lookup: {
-            from: "videos",
-            localField: "watchHistory",
-            foreignField: "_id",
-            as: "watchHistory",
-            pipeline: [
-              {
-                $lookup: {
-                  from: "users",
-                  localField: "owner",
-                  foreignField: "_id",
-                  as: "owner",
-                  pipeline: [
-                    {
-                      $project: {
-                        fullName: 1,
-                        username: 1,
-                        avatar: 1,
-                      }
-                    }
-                  ]
-                }
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
               },
-              {
-                $addFields: {
-                  owner: {
-                    $first: "$owner",
-                  }
-                }
-              }
-            ]
+            },
+          },
+        ],
+      },
+    },
+  ]);
 
-          }
-        }
-     ])
-
-     return res.status(200).json(
-      new ApiResponse(200, user[0].getWatchHistory, "Watch history fetched successfully")
-     )
-})
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user[0].getWatchHistory,
+        "Watch history fetched successfully"
+      )
+    );
+});
 
 export {
   registerUser,
@@ -497,5 +503,5 @@ export {
   updateUserAvatar,
   updateUserCoverImage,
   getUserChannelProfile,
-  getWatchHistory
+  getWatchHistory,
 };

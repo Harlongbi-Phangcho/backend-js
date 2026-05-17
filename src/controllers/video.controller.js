@@ -4,13 +4,13 @@ import { User } from "../models/user.models.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const {
     page = 1,
     limit = 10,
-    query,
+    query= '',
     sortBy = "createdAt",
     sortType = "desc",
     userId,
@@ -151,7 +151,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  console.log("videoId", videoId);
+
   // validate videoId
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid videoId");
@@ -205,8 +205,6 @@ const getVideoById = asyncHandler(async (req, res) => {
 const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   const { title, description } = req.body;
-  const thumbnailPath = req.file?.path;
-  let uploadedThumbnail;
 
   // validate videoId
   if (!isValidObjectId(videoId)) {
@@ -224,31 +222,39 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You are not authorized to update this video");
   }
 
-  if(title !== undefined && !title.trim()) {
+  if (title !== undefined && !title.trim()) {
     throw new ApiError(400, "Title cannot be empty");
   }
 
-  if(description !== undefined && !description.trim()) {
+  if (description !== undefined && !description.trim()) {
     throw new ApiError(400, "Description cannot be empty");
   }
 
-  if (thumbnailPath) {
-    uploadedThumbnail = await uploadOnCloudinary(thumbnailPath);
-  }
-
-  if(!uploadedThumbnail?.secure_url) {
-    throw new ApiError(400, "Thumbnail upload failed");
-  }
-
   // update only provided fields
-  if (title) {
-    video.title = title;
+  if (title !== undefined) {
+    video.title = title.trim();
   }
-  if (description) {
-    video.description = description;
+  if (description !== undefined) {
+    video.description = description.trim();
   }
-  if (uploadedThumbnail?.secure_url) {
+
+  // update thumbnail (optional)
+  if (req.file?.path) {
+    const uploadedThumbnail = await uploadOnCloudinary(req.file.path);
+
+    if (!uploadedThumbnail?.secure_url) {
+      throw new ApiError(400, "Thumbnail upload failed");
+    }
+    const oldThumbnailUrl = video.thumbnail;
+    console.log("oldThumbnailUrl:", oldThumbnailUrl);
+    const oldThumbnailPublicId = oldThumbnailUrl.split("/").slice(-1)[0].split(".")[0];
+    console.log("oldThumbnailPublicId:", oldThumbnailPublicId);
     video.thumbnail = uploadedThumbnail.secure_url;
+
+    // delete old thumbnail from cloudinary
+    if(oldThumbnailPublicId) {
+      await deleteFromCloudinary(oldThumbnailPublicId);
+    }
   }
 
   await video.save();
@@ -261,6 +267,42 @@ const updateVideo = asyncHandler(async (req, res) => {
 const deleteVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   //TODO: delete video
+
+  // validate videoId
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid videoId");
+  }
+
+  // find video by id
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  } 
+  if (video.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not authorized to delete this video");
+  }
+  // old video public and thumbnail id
+  const oldVideoPublicId = video.videoFile .split("/").slice(-1)[0].split(".")[0];
+  const oldThumbnailPublicId= video.thumbnail.split("/").slice(-1)[0].split(".")[0];
+
+  
+  // delete video document from database
+  await video.deleteOne();
+  
+  // delete video file from cloudinary
+  if(oldVideoPublicId) {
+    await deleteFromCloudinary(oldVideoPublicId, "video");
+  }
+
+  // delete thumbnail from cloudinary
+   if(oldThumbnailPublicId) {
+    await deleteFromCloudinary(oldThumbnailPublicId);
+  } 
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Video deleted successfully"));
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
