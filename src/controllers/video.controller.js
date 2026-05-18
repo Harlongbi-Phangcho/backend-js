@@ -251,7 +251,7 @@ const updateVideo = asyncHandler(async (req, res) => {
     }
 
     // get old thumbnail public id for deletion
-     oldThumbnailPublicId = video.thumbnail
+    oldThumbnailPublicId = video.thumbnail
       ?.split("/")
       .slice(-1)[0]
       .split(".")[0];
@@ -325,27 +325,23 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid videoId");
   }
-
-  //find video by id and toggle isPublished field
-  const updatedVideo = await Video.findOneAndUpdate(
+  console.log(videoId);
+  //find video by id 
+  const video = await Video.findOne(
     {
       _id: videoId,
       owner: req.user._id,
     },
-    [
-      {
-        $set: {
-          isPublish: {
-            $not: "$isPublish",
-          },
-        },
-      },
-    ],
-    { new: true }
   );
-  if (!updatedVideo) {
+
+  // validate video
+  if (!video) {
     throw new ApiError(404, "Video not found or unauthorized");
   }
+
+  // toggle publish status
+  video.isPublish = !video.isPublish;
+  await video.save();
 
   // send response
   return res
@@ -353,7 +349,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        updatedVideo,
+        video,
         "Video publish status toggled successfully"
       )
     );
