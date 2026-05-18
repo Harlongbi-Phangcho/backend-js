@@ -214,15 +214,14 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid videoId");
   }
 
-  // find video by id
-  const video = await Video.findById(videoId);
+  // find video by id and owner
+  const video = await Video.findOne({
+    _id: videoId,
+    owner: req.user._id,
+  });
 
   if (!video) {
-    throw new ApiError(404, "Video not found");
-  }
-
-  if (video.owner.toString() !== req.user._id.toString()) {
-    throw new ApiError(403, "You are not authorized to update this video");
+    throw new ApiError(404, "Video not found or unauthorized");
   }
 
   if (title !== undefined && !title.trim()) {
@@ -241,6 +240,8 @@ const updateVideo = asyncHandler(async (req, res) => {
     video.description = description.trim();
   }
 
+  let oldThumbnailPublicId;
+
   // update thumbnail (optional)
   if (req.file?.path) {
     const uploadedThumbnail = await uploadOnCloudinary(req.file.path);
@@ -248,22 +249,22 @@ const updateVideo = asyncHandler(async (req, res) => {
     if (!uploadedThumbnail?.secure_url) {
       throw new ApiError(400, "Thumbnail upload failed");
     }
-    const oldThumbnailUrl = video.thumbnail;
-    console.log("oldThumbnailUrl:", oldThumbnailUrl);
-    const oldThumbnailPublicId = oldThumbnailUrl
-      .split("/")
+
+    // get old thumbnail public id for deletion
+     oldThumbnailPublicId = video.thumbnail
+      ?.split("/")
       .slice(-1)[0]
       .split(".")[0];
-    console.log("oldThumbnailPublicId:", oldThumbnailPublicId);
-    video.thumbnail = uploadedThumbnail.secure_url;
 
-    // delete old thumbnail from cloudinary
-    if (oldThumbnailPublicId) {
-      await deleteFromCloudinary(oldThumbnailPublicId);
-    }
+    video.thumbnail = uploadedThumbnail.secure_url;
   }
 
   await video.save();
+
+  // delete old thumbnail from cloudinary
+  if (oldThumbnailPublicId) {
+    await deleteFromCloudinary(oldThumbnailPublicId);
+  }
 
   return res
     .status(200)
@@ -280,23 +281,22 @@ const deleteVideo = asyncHandler(async (req, res) => {
   }
 
   // find video by id
-  const video = await Video.findById(videoId);
+  const video = await Video.findOne({
+    _id: videoId,
+    owner: req.user._id,
+  });
 
   if (!video) {
-    throw new ApiError(404, "Video not found");
+    throw new ApiError(404, "Video not found or unauthorized");
   }
 
-  // check if the user is the owner of the video
-  if (video.owner.toString() !== req.user._id.toString()) {
-    throw new ApiError(403, "You are not authorized to delete this video");
-  }
   // old video public and thumbnail id
   const oldVideoPublicId = video.videoFile
-    .split("/")
+    ?.split("/")
     .slice(-1)[0]
     .split(".")[0];
   const oldThumbnailPublicId = video.thumbnail
-    .split("/")
+    ?.split("/")
     .slice(-1)[0]
     .split(".")[0];
 
@@ -326,28 +326,36 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid videoId");
   }
 
-  //find video by id
-  const video = await Video.findById(videoId);
-  if (!video) {
-    throw new ApiError(404, "Video not found");
+  //find video by id and toggle isPublished field
+  const updatedVideo = await Video.findOneAndUpdate(
+    {
+      _id: videoId,
+      owner: req.user._id,
+    },
+    [
+      {
+        $set: {
+          isPublish: {
+            $not: "$isPublish",
+          },
+        },
+      },
+    ],
+    { new: true }
+  );
+  if (!updatedVideo) {
+    throw new ApiError(404, "Video not found or unauthorized");
   }
-
-  // check if the user is the owner of the video
-  if (video.owner.toString() !== req.user._id.toString()) {
-    throw new ApiError(403, "You are not authorized to update this video");
-  }
-
-  // toggle publish status
-  video.isPublish = !video.isPublish;
-
-  // save video
-  await video.save();
 
   // send response
   return res
     .status(200)
     .json(
-      new ApiResponse(200, video, "Video publish status toggled successfully")
+      new ApiResponse(
+        200,
+        updatedVideo,
+        "Video publish status toggled successfully"
+      )
     );
 });
 
