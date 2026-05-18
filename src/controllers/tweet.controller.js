@@ -28,6 +28,21 @@ const createTweet = asyncHandler(async (req, res) => {
 const getUserTweets = asyncHandler(async (req, res) => {
   // get userId from params
   const { userId } = req.params;
+  const {page = 1, limit = 10} = req.query
+
+  
+  const pageNumber = parseInt(page);
+  const limitNumber = parseInt(limit);
+
+  // validate page and limit
+  if (isNaN(pageNumber) || pageNumber < 1) {
+    throw new ApiError(400, "Invalid page number");
+  }
+  if (isNaN(limitNumber) || limitNumber < 1) {
+    throw new ApiError(400, "Invalid limit number");
+   }
+
+   const skipNumber = (pageNumber - 1) * limitNumber;
 
   // validate userId
   if (!isValidObjectId(userId)) {
@@ -68,10 +83,18 @@ const getUserTweets = asyncHandler(async (req, res) => {
       },
     },
 
+   
     {
       $sort: {
         createdAt: -1,
       },
+    },
+
+    {
+      $skip: skipNumber,
+    },
+    {
+      $limit: limitNumber,
     },
   ]);
 
