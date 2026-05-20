@@ -20,11 +20,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
   } = req.query;
 
   //covert page and limit to number
-  const pageNumber = parseInt(page);
-  const limitNumber = parseInt(limit);
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
 
   const matchCondition = {
-    isPublished: true,
+    isPublish: true,
   };
 
   // search by title
@@ -162,10 +162,10 @@ const getVideoById = asyncHandler(async (req, res) => {
 
   // aggregate video with user details using $lookup
   const video = await Video.aggregate([
-    {
+    { 
       $match: {
         _id: new mongoose.Types.ObjectId(videoId),
-        isPublished: true,
+        isPublish: true,
       },
     },
 
@@ -197,17 +197,23 @@ const getVideoById = asyncHandler(async (req, res) => {
     },
   ]);
 
-  if (!video.length === 0) {
+  if (video.length === 0) {
     throw new ApiError(404, "Video not found");
   }
+
   return res
     .status(200)
-    .json(new ApiResponse(200, video[0], "Video fetched successfully"));
+    .json(new ApiResponse(200, video, "Video fetched successfully"));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  const { title, description } = req.body;
+  const { title, description } = req.body ?? {};
+
+  // throw error  required any one field to update
+  if (title === undefined && description === undefined && !req.file?.path) {
+    throw new ApiError(400, "At least one field (title, description or thumbnail) is required to update");
+  }
 
   // validate videoId
   if (!isValidObjectId(videoId)) {
@@ -325,7 +331,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid videoId");
   }
-  console.log(videoId);
+ 
   //find video by id 
   const video = await Video.findOne(
     {
