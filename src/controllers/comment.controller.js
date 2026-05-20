@@ -142,7 +142,7 @@ const updateComment = asyncHandler(async (req, res) => {
   );
 
   if (!updatedComment) {
-    throw new ApiError(404, "Video not found or unauthorized");
+    throw new ApiError(404, "Comment not found or unauthorized");
   }
 
   return res
