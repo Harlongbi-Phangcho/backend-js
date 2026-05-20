@@ -199,7 +199,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params ?? {};
   // validate playlist and video id
   if (!(playlistId || videoId)) {
-    throw new ApiError(400, "Playlist ID or video ID is required");
+    throw new ApiError(400, "Playlist ID and video ID are required");
   }
 
   //validate
@@ -255,7 +255,10 @@ const deletePlaylist = asyncHandler(async (req, res) => {
   });
 
   // validate playlist  if (!playlist) {
-  throw new ApiError(404, "Playlist not found or you are not the owner");
+
+  if (!playlist) {
+    throw new ApiError(404, "Playlist not found or unauthorized");
+  }
 
   return res
     .status(200)
@@ -275,9 +278,12 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid playlist ID");
   }
 
- // validate name and description
+  // validate name and description
   if (name === undefined && description === undefined) {
-    throw new ApiError(400, "At least one field (name or description) is required");
+    throw new ApiError(
+      400,
+      "At least one field (name or description) is required"
+    );
   }
 
   // validate name and description
