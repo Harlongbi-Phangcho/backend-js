@@ -72,6 +72,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
         ],
       },
     },
+
     {
       $addFields: {
         owner: {
@@ -88,7 +89,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, playlists, "Playlist fetched successfully"));
+    .json(new ApiResponse(200, playlists, "Playlists fetched successfully"));
 });
 
 const getPlaylistById = asyncHandler(async (req, res) => {
@@ -154,6 +155,42 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params;
+
+  // validate playlist id and video id
+  if (!(playlistId || videoId)) {
+    throw new ApiError(400, "Playlist ID or video ID is required");
+  }
+
+  //validate
+  if (!isValidObjectId(playlistId)) {
+    throw new ApiError(400, "Invalid playlist ID");
+  }
+
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid video ID");
+  }
+
+  //find playlist and add video
+  const playlist = await Playlist.findOneAndUpdate(
+    {
+      _id: playlistId,
+      owner: req.user._id,
+    },
+    {
+      $addToSet: {
+        videos: videoId,
+      },
+    },
+    { new: true }
+  );
+
+  if (!playlist) {
+    throw new ApiError(400, "Failed to add video to playlist");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, playlist, "Video added to playlist successfully"));
 });
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
