@@ -79,6 +79,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid channel ID");
   }
 
+  // check if channel exists
   const subscribers = await Subscription.aggregate([
     {
       $match: {
@@ -123,7 +124,6 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     },
   ]);
 
-  console.log("subscribers: ", subscribers);
   // return response
   return res
     .status(200)
