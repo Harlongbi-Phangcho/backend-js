@@ -125,10 +125,10 @@ const publishAVideo = asyncHandler(async (req, res) => {
   const uploadedThumbnail = await uploadOnCloudinary(thumbnailPath);
 
   // validate upload
-  if (!uploadedVideoFile.secure_url) {
+  if (!uploadedVideoFile?.secure_url) {
     throw new ApiError(400, "Video upload failed");
   }
-  if (!uploadedThumbnail.secure_url) {
+  if (!uploadedThumbnail?.secure_url) {
     throw new ApiError(400, "Thumbnail upload failed");
   }
 
@@ -146,7 +146,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Failed to publish video");
   }
 
-  // sennd response
+  // send response
   return res
     .status(201)
     .json(new ApiResponse(201, newVideo, "Video published successfully"));
@@ -162,7 +162,7 @@ const getVideoById = asyncHandler(async (req, res) => {
 
   // aggregate video with user details using $lookup
   const video = await Video.aggregate([
-    { 
+    {
       $match: {
         _id: new mongoose.Types.ObjectId(videoId),
         isPublish: true,
@@ -197,13 +197,13 @@ const getVideoById = asyncHandler(async (req, res) => {
     },
   ]);
 
-  if (video.length === 0) {
+  if (!video.length) {
     throw new ApiError(404, "Video not found");
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, video, "Video fetched successfully"));
+    .json(new ApiResponse(200, video[0], "Video fetched successfully"));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
@@ -212,7 +212,10 @@ const updateVideo = asyncHandler(async (req, res) => {
 
   // throw error  required any one field to update
   if (title === undefined && description === undefined && !req.file?.path) {
-    throw new ApiError(400, "At least one field (title, description or thumbnail) is required to update");
+    throw new ApiError(
+      400,
+      "At least one field (title, description or thumbnail) is required to update"
+    );
   }
 
   // validate videoId
@@ -331,14 +334,12 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid videoId");
   }
- 
-  //find video by id 
-  const video = await Video.findOne(
-    {
-      _id: videoId,
-      owner: req.user._id,
-    },
-  );
+
+  //find video by id
+  const video = await Video.findOne({
+    _id: videoId,
+    owner: req.user._id,
+  });
 
   // validate video
   if (!video) {
@@ -356,7 +357,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         video,
-        "Video publish status toggled successfully"
+        `Video ${video.isPublish ? "published" : "unpublished"} successfully`
       )
     );
 });
