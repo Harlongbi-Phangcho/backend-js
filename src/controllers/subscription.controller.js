@@ -108,13 +108,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
       },
     },
 
-    {
-      $addFields: {
-        subscriberCount: {
-          $size: "$subscriber",
-        },
-      },
-    },
+   
     {
       $skip: (page - 1) * limit,
     },
