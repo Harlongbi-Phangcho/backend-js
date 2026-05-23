@@ -8,72 +8,68 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const getChannelStats = asyncHandler(async (req, res) => {
   // TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
-  // get channel id
-  // validate channel id
-  // get total videos uploaded by the channel
-  // get total views of the channel
-  // get total subscribers of the channel
-  // get total likes of the channel
-  // return response
 
-    const channelId = req.user._id;
-    const totalVideos = await Video.countDocuments({ owner: channelId });
-    const totalViews = await Video.aggregate([
-      {
-        $match: {
-          owner: new mongoose.Types.ObjectId(channelId),
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalViews: { $sum: "$views" },
-        },
-      },
-    ]);
+  const channelId = req.user._id;
+  const totalVideos = await Video.countDocuments({ owner: channelId });
 
-    const totalSubscribers = await Subscription.countDocuments({
-      channel: channelId,
-    });
+  const totalViews = await Video.aggregate([
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(channelId),
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalViews: { $sum: "$views" },
+      },
+    },
+  ]);
 
-    const totalLikes = await Like.aggregate([
-      {
-        $lookup: {
-          from: "videos",
-          localField: "video",
-          foreignField: "_id",
-          as: "videoDetails",
-        },
-      },
-      {
-        $unwind: "$videoDetails",
-      },
-      {
-        $match: {
-          "videoDetails.owner": new mongoose.Types.ObjectId(channelId),
-        },
-      },
-      {
-        $count: "totalLikes",
-      },
-    ]);
+  const totalSubscribers = await Subscription.countDocuments({
+    channel: channelId,
+  });
 
-    return res.status(200).json(
-      new ApiResponse(200, {
-        totalVideos,
-        totalViews: totalViews[0] ? totalViews[0].totalViews : 0,
-        totalSubscribers,
-        totalLikes: totalLikes[0] ? totalLikes[0].totalLikes : 0,
-      })
-    );  
+  const totalLikes = await Like.aggregate([
+    {
+      $lookup: {
+        from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "videoDetails",
+      },
+    },
+    {
+      $unwind: "$videoDetails",
+    },
+    {
+      $match: {
+        "videoDetails.owner": new mongoose.Types.ObjectId(channelId),
+      },
+    },
+    {
+      $count: "totalLikes",
+    },
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(200, {
+      totalVideos,
+      totalViews: totalViews[0] ? totalViews[0].totalViews : 0,
+      totalSubscribers,
+      totalLikes: totalLikes[0] ? totalLikes[0].totalLikes : 0,
+    })
+  );
 });
 
 const getChannelVideos = asyncHandler(async (req, res) => {
-  
+  const { page = 1, limit = 10 } = req.query;
+
+  const pageNumber = Math.max(1, Number(page) || 1);
+  const limitNumber = Math.max(1, Number(limit) || 10);
+
   // get the channel id from the user object in the request
   const channelId = req.user._id;
-
-
   // find all videos uploaded by the channel
   const videos = await Video.aggregate([
     {
@@ -99,6 +95,12 @@ const getChannelVideos = asyncHandler(async (req, res) => {
     },
 
     {
+      $sort: {
+        createdAt: -1,
+      },
+    },
+
+    {
       $project: {
         videoFile: 1,
         thumbnail: 1,
@@ -107,7 +109,17 @@ const getChannelVideos = asyncHandler(async (req, res) => {
         duration: 1,
         views: 1,
         likeCount: 1,
+        isPublish: 1,
+        createdAt: 1,
       },
+    },
+
+    {
+      $skip: (pageNumber - 1) * limitNumber,
+    },
+
+    {
+      $limit: limitNumber,
     },
   ]);
 
