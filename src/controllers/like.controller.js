@@ -113,7 +113,9 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200,{ liked: false }, "Tweet unliked successfully"));
+      .json(
+        new ApiResponse(200, { liked: false }, "Tweet unliked successfully")
+      );
   }
 
   //create like
@@ -128,12 +130,47 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {
-  //TODO: get all liked videos
-  //get all liked video ids
-  //get video details for each id
-  //return response
-  
-  
+  // Get all liked videos
+ const page = Math.max(1, Number(req.query.page)) || 1;
+  const limit = Math.min(10, Number(req.query.limit)) || 10;
+  const skip = (page - 1) * limit;
+
+  const videos = await Like.aggregate([
+    {
+      $match: {
+        likeBy: new mongoose.Types.ObjectId(req.user._id),
+        video: { $ne: null },
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "videoDetails",
+      },
+    },
+    {
+      $unwind: "$videoDetails",
+    },
+    {
+      $replaceRoot: { newRoot: "$videoDetails" },
+    },
+    {
+      $sort: { createdAt: -1 },
+    },
+    { $skip: skip },
+    {
+      $limit: limit,
+    },
+  ]);
+
+  console.log("Video Details:", videos);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, videos, "Liked videos retrieved successfully"));
 });
+
+
 
 export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };
