@@ -7,26 +7,15 @@ import { Video } from "../models/video.models.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
-  const { videoId } = req.params;
-  const { page = 1, limit = 10 } = req.query;
-
+  const { videoId } = req.params; 
   // Validate videoId
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video ID");
   }
 
-  const pageNumber = parseInt(page);
-  const limitNumber = parseInt(limit);
-
-  // Validate pagination parameters
-  if (isNaN(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Invalid page number");
-  }
-  if (isNaN(limitNumber) || limitNumber < 1) {
-    throw new ApiError(400, "Invalid limit number");
-  }
-
-  const skipNumber = (pageNumber - 1) * limitNumber;
+  const page = Math.max(1, Number(req.query.page)) || 1;
+  const limit = Math.min(10, Number(req.query.limit)) || 10;
+  const skip = (page - 1) * limit;
 
   const comments = await Comment.aggregate([
     {
@@ -65,12 +54,11 @@ const getVideoComments = asyncHandler(async (req, res) => {
         createdAt: -1,
       },
     },
-
     {
-      $skip: skipNumber,
+      $skip: skip,
     },
     {
-      $limit: limitNumber,
+      $limit: limit,
     },
   ]);
 
