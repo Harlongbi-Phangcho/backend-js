@@ -30,11 +30,13 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
   const { userId } = req.params;
+  const page = Math.max(1, Number(req.query.page)) || 1;
+  const limit = Math.min(10, Number(req.query.limit)) || 10;
+  const skip = (page - 1) * limit;
 
   if (!userId) {
     throw new ApiError(400, "User ID is required");
   }
-
   //validate user id
   if (!isValidObjectId(userId)) {
     throw new ApiError(400, "Invalid user ID");
@@ -79,6 +81,16 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
           $first: "$owner",
         },
       },
+    },
+    { $sort: {
+        createdAt: -1,
+      },
+    },
+    {
+      $skip: skip,
+    },
+    {
+      $limit: limit,
     },
   ]);
 
