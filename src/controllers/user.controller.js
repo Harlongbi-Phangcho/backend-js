@@ -102,13 +102,6 @@ const registerUser = asyncHandler(async (req, res) => {
 
 // login user
 const loginUser = asyncHandler(async (req, res) => {
-  // req body -> data
-  // username or email
-  // find the user
-  // password check
-  // access and refresh refreshToken
-  // send cookies
-
   const { username, email, password } = req.body;
 
   if (!email && !username) {
@@ -137,10 +130,17 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
+const options = {
+  httpOnly: true,
+  secure:
+    process.env.NODE_ENV ===
+    "production",
+  sameSite:
+    process.env.NODE_ENV ===
+    "production"
+      ? "none"
+      : "lax",
+};
 
   return res
     .status(200)
@@ -173,10 +173,17 @@ const logoutUser = asyncHandler(async (req, res) => {
     }
   );
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
+const options = {
+  httpOnly: true,
+  secure:
+    process.env.NODE_ENV ===
+    "production",
+  sameSite:
+    process.env.NODE_ENV ===
+    "production"
+      ? "none"
+      : "lax",
+};
 
   return res
     .status(200)

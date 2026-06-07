@@ -1,17 +1,23 @@
 {
-  "name": "04-chai-aur-backend",
+  "name": "video-platform-backend",
   "version": "1.0.0",
-  "description": "a backend ",
-  "keywords": [
-    "javascript.",
-    "backend"
-  ],
+  "description": "Feature-rich backend API built with Node.js, Express, MongoDB, JWT, and Cloudinary.",
+ "keywords": [
+  "nodejs",
+  "express",
+  "mongodb",
+  "mongoose",
+  "backend",
+  "jwt",
+  "cloudinary",
+  "rest-api"
+],
   "license": "ISC",
-  "author": "\"Haelongbi Phangcho\"",
+  "author": "Harlongbi Phangcho",
   "type": "module",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
+    "dev": "nodemon src/index.js",
     "start": "node src/index.js"
   },
   "devDependencies": {
