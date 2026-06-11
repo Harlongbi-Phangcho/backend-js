@@ -45,7 +45,7 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (existedUser) {
-    throw new ApiError(409, "User with email or username already exists");
+    throw new ApiError(409,  "User with email or username already exists");
   }
 
   // check for images, check for avatar
@@ -68,7 +68,6 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // upload them to cloudinary, avatar
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) {
@@ -130,17 +129,11 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
-const options = {
-  httpOnly: true,
-  secure:
-    process.env.NODE_ENV ===
-    "production",
-  sameSite:
-    process.env.NODE_ENV ===
-    "production"
-      ? "none"
-      : "lax",
-};
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  };
 
   return res
     .status(200)
@@ -173,17 +166,11 @@ const logoutUser = asyncHandler(async (req, res) => {
     }
   );
 
-const options = {
-  httpOnly: true,
-  secure:
-    process.env.NODE_ENV ===
-    "production",
-  sameSite:
-    process.env.NODE_ENV ===
-    "production"
-      ? "none"
-      : "lax",
-};
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  };
 
   return res
     .status(200)
