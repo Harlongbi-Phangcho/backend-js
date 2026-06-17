@@ -160,8 +160,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid videoId");
   }
 
-  // aggregate video with user details using $lookup
-  const video = await Video.aggregate([
+  const pipeline = [
     {
       $match: {
         _id: new mongoose.Types.ObjectId(videoId),
@@ -187,21 +186,58 @@ const getVideoById = asyncHandler(async (req, res) => {
         ],
       },
     },
-
     {
       $addFields: {
-        owner: {
-          $first: "$owner",
-        },
+        owner: { $first: "$owner" },
       },
     },
-  ]);
+
+    // lookup likes and compute count
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "likes",
+      },
+    },
+    {
+      $addFields: {
+        likesCount: { $size: "$likes" },
+      },
+    },
+
+    // only compute isLike if user is authenticated
+    ...(req.user
+      ? [
+          {
+            $addFields: {
+              isLike: {
+                $in: [
+                  new mongoose.Types.ObjectId(req.user._id),
+                  "$likes.likeBy",
+                ],
+              },
+            },
+          },
+        ]
+      : []),
+
+    // drop raw likes array — client only needs likesCount and isLike
+    {
+      $project: {
+        likes: 0,
+      },
+    },
+  ];
+
+  const video = await Video.aggregate(pipeline);
 
   if (!video.length) {
     throw new ApiError(404, "Video not found");
   }
 
-  // increment video views by 1
+  // increment views only after confirming video exists
   await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
 
   return res
