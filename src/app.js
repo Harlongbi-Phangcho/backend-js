@@ -5,10 +5,12 @@ import {errorHandler} from "./middlewares/error.middleware.js";
 
 const app = express();
 
-const allowedOrigins = process.env.CORS_ORIGIN.split(",");
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: [
+      "http://localhost:5173",
+      "https://your-app.vercel.app",
+    ],
     credentials: true,
   })
 );
