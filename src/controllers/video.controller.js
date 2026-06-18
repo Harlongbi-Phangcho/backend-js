@@ -216,7 +216,7 @@ const getVideoById = asyncHandler(async (req, res) => {
           $size: "$likes",
         },
         
-        comments: {
+        commentsCount: {
           $size: "$comments",
         },
       },
