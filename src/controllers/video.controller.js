@@ -168,7 +168,7 @@ const getVideoById = asyncHandler(async (req, res) => {
       },
     },
 
-    // lookup owner details
+    // Owner details
     {
       $lookup: {
         from: "users",
@@ -186,13 +186,8 @@ const getVideoById = asyncHandler(async (req, res) => {
         ],
       },
     },
-    {
-      $addFields: {
-        owner: { $first: "$owner" },
-      },
-    },
 
-    // lookup likes and compute count
+    // Likes
     {
       $lookup: {
         from: "likes",
@@ -201,18 +196,38 @@ const getVideoById = asyncHandler(async (req, res) => {
         as: "likes",
       },
     },
+
+    {
+      $lookup: {
+        from: "comments",
+        localField: "_id",
+        foreignField: "video",
+        as: "comments",
+      }
+    },
+
     {
       $addFields: {
-        likesCount: { $size: "$likes" },
+        owner: {
+          $first: "$owner",
+        },
+
+        likesCount: {
+          $size: "$likes",
+        },
+        
+        commentsCount: {
+          $size: "$comments",
+        },
       },
     },
 
-    // only compute isLike if user is authenticated
+    // Is liked by current user
     ...(req.user
       ? [
           {
             $addFields: {
-              isLike: {
+              isLiked: {
                 $in: [
                   new mongoose.Types.ObjectId(req.user._id),
                   "$likes.likeBy",
@@ -221,12 +236,19 @@ const getVideoById = asyncHandler(async (req, res) => {
             },
           },
         ]
-      : []),
+      : [
+          {
+            $addFields: {
+              isLiked: false,
+            },
+          },
+        ]),
 
-    // drop raw likes array — client only needs likesCount and isLike
+    // Remove raw likes array
     {
       $project: {
         likes: 0,
+        comments: 0,
       },
     },
   ];
@@ -237,12 +259,23 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found");
   }
 
-  // increment views only after confirming video exists
-  await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
+  // Increment views
+  await Video.findByIdAndUpdate(videoId, {
+    $inc: {
+      views: 1,
+    },
+  });
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, video[0], "Video fetched successfully"));
+  // Update response immediately
+  video[0].views += 1;
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      video[0],
+      "Video fetched successfully"
+    )
+  );
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
