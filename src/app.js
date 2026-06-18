@@ -4,12 +4,11 @@ import cookieParser from "cookie-parser";
 import {errorHandler} from "./middlewares/error.middleware.js";
 
 const app = express();
-
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://video-platform-frontend-phi.vercel.app/",
+      "https://video-platform-frontend-phi.vercel.app",
     ],
     credentials: true,
   })
