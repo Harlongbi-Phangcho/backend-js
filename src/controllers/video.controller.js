@@ -210,7 +210,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     //subscription
     {
       $lookup: {
-        from: "subscription",
+        from: "subscriptions",
         localField: "owner",
         foreignField: "channel",
         as: "subscribers",
