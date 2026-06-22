@@ -72,7 +72,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
   //paginate
   const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(10, Number(req.query.limit) || 1);
+  const limit = Math.min(50, Number(req.query.limit) || 10);
 
   //validate channel id
   if (!isValidObjectId(subscriberId)) {
@@ -108,6 +108,12 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
       },
     },
 
+    {
+  $project: {
+    subscriber: 0,  // drop raw array, keep subscriberDetails
+  },
+},
+
    
     {
       $skip: (page - 1) * limit,
@@ -136,7 +142,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
 
   // pagination
   const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(10, Number(req.query.limit) || 1);
+  const limit = Math.min(50, Number(req.query.limit) || 10);
   const skip = (page - 1) * limit;
 
   // validate subscribe ID
