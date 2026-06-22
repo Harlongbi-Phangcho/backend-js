@@ -207,17 +207,6 @@ const getVideoById = asyncHandler(async (req, res) => {
       }
     },
 
-    //subscriptions of video owner
-    {
-      $lookup: {
-        from: "subscriptions",
-        localField: "owner",
-        foreignField: "channel",
-        as: "subscribers",
-      }
-    },
-
-    
     //subscription
     {
       $lookup: {
