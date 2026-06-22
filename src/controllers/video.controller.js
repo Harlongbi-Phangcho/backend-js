@@ -197,12 +197,24 @@ const getVideoById = asyncHandler(async (req, res) => {
       },
     },
 
+    // comments
     {
       $lookup: {
         from: "comments",
         localField: "_id",
         foreignField: "video",
         as: "comments",
+      }
+    },
+
+
+    //subscription
+    {
+      $lookup: {
+        from: "subscription",
+        localField: "owner",
+        foreignField: "channel",
+        as: "subscribers",
       }
     },
 
@@ -219,6 +231,9 @@ const getVideoById = asyncHandler(async (req, res) => {
         commentsCount: {
           $size: "$comments",
         },
+        subscribersCount: {
+          $size: "$subscribers",
+        }
       },
     },
 
@@ -233,6 +248,12 @@ const getVideoById = asyncHandler(async (req, res) => {
                   "$likes.likeBy",
                 ],
               },
+              isSubscribed: {
+                $in: [
+                  new mongoose.Types.ObjectId(req.user._id),
+                  "$subscribers.subscriber",
+                ],
+              },
             },
           },
         ]
@@ -240,6 +261,7 @@ const getVideoById = asyncHandler(async (req, res) => {
           {
             $addFields: {
               isLiked: false,
+              isSubscribed: false,
             },
           },
         ]),
@@ -249,6 +271,7 @@ const getVideoById = asyncHandler(async (req, res) => {
       $project: {
         likes: 0,
         comments: 0,
+        subscribers: 0,
       },
     },
   ];
