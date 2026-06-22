@@ -160,121 +160,107 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid videoId");
   }
 
-  const pipeline = [
-    {
-      $match: {
-        _id: new mongoose.Types.ObjectId(videoId),
-        isPublish: true,
-      },
+ const pipeline = [
+  {
+    $match: {
+      _id: new mongoose.Types.ObjectId(videoId),
+      isPublish: true,
     },
+  },
 
-    // Owner details
-    {
-      $lookup: {
-        from: "users",
-        localField: "owner",
-        foreignField: "_id",
-        as: "owner",
-        pipeline: [
-          {
-            $project: {
-              fullName: 1,
-              username: 1,
-              avatar: 1,
+  // lookup owner details
+  {
+    $lookup: {
+      from: "users",
+      localField: "owner",
+      foreignField: "_id",
+      as: "owner",
+      pipeline: [
+        {
+          $project: { fullName: 1, username: 1, avatar: 1 },
+        },
+      ],
+    },
+  },
+
+  // unwind owner before using owner._id in subsequent lookups
+  {
+    $addFields: {
+      owner: { $first: "$owner" },
+    },
+  },
+
+  // lookup likes
+  {
+    $lookup: {
+      from: "likes",
+      localField: "_id",
+      foreignField: "video",
+      as: "likes",
+    },
+  },
+
+  // lookup comments (count only)
+  {
+    $lookup: {
+      from: "comments",
+      localField: "_id",
+      foreignField: "video",
+      as: "comments",
+    },
+  },
+
+  // lookup subscribers using owner._id (now correctly unwound)
+  {
+    $lookup: {
+      from: "subscriptions",
+      localField: "owner._id",
+      foreignField: "channel",
+      as: "subscribers",
+    },
+  },
+
+  // compute all counts
+  {
+    $addFields: {
+      likesCount: { $size: "$likes" },
+      commentsCount: { $size: "$comments" },
+      subscribersCount: { $size: "$subscribers" },
+    },
+  },
+
+  // isLike and isSubscribed — only if user is logged in
+  ...(req.user
+    ? [
+        {
+          $addFields: {
+            isLike: {   // matches frontend: videoData?.isLike
+              $in: [new mongoose.Types.ObjectId(req.user._id), "$likes.likeBy"],
+            },
+            isSubscribed: {
+              $in: [new mongoose.Types.ObjectId(req.user._id), "$subscribers.subscriber"],
             },
           },
-        ],
-      },
-    },
-
-    // Likes
-    {
-      $lookup: {
-        from: "likes",
-        localField: "_id",
-        foreignField: "video",
-        as: "likes",
-      },
-    },
-
-    // comments
-    {
-      $lookup: {
-        from: "comments",
-        localField: "_id",
-        foreignField: "video",
-        as: "comments",
-      }
-    },
-
-    //subscription
-    {
-      $lookup: {
-        from: "subscriptions",
-        localField: "owner",
-        foreignField: "channel",
-        as: "subscribers",
-      }
-    },
-
-    {
-      $addFields: {  
-        owner: {
-          $first: "$owner",
         },
-
-        likesCount: {
-          $size: "$likes",
-        },
-        
-        commentsCount: {
-          $size: "$comments",
-        },
-        subscribersCount: {
-          $size: "$subscribers",
-        },
-      },
-    },
-
-    // Is liked by current user
-    ...(req.user
-      ? [
-          {
-            $addFields: {
-              isLiked: {
-                $in: [
-                  new mongoose.Types.ObjectId(req.user._id),
-                  "$likes.likeBy",
-                ],
-              },
-              isSubscribed: {
-                $in: [
-                  new mongoose.Types.ObjectId(req.user._id),
-                  "$subscribers.subscriber",
-                ],
-              },
-            },
+      ]
+    : [
+        {
+          $addFields: {
+            isLike: false,
+            isSubscribed: false,
           },
-        ]
-      : [
-          {
-            $addFields: {
-              isLiked: false,
-              isSubscribed: false
-            },
-          },
-        ]),
+        },
+      ]),
 
-    // Remove raw likes array
-    {
-      $project: {
-        likes: 0,
-        comments: 0,
-        subscriber: 0
-      },
+  // drop raw arrays — client only needs computed fields
+  {
+    $project: {
+      likes: 0,
+      comments: 0,
+      subscribers: 0,  // fixed typo from "subscriber"
     },
-  ];
-
+  },
+];
   const video = await Video.aggregate(pipeline);
 
   if (!video.length) {
