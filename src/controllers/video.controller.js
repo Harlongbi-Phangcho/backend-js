@@ -277,6 +277,23 @@ const getVideoById = asyncHandler(async (req, res) => {
   // Update response immediately
   video[0].views += 1;
 
+
+  // ── Watch history — only for logged in users, not the owner
+  if (req.user && !isOwner) {
+    // remove if already exists, then re-add at top (most recent first)
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { watchHistory: videoId },
+    });
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: {
+        watchHistory: {
+          $each: [videoId],
+          $position: 0, // insert at beginning so most recent is first
+        },
+      },
+    });
+  }
+
   return res.status(200).json(
     new ApiResponse(
       200,
