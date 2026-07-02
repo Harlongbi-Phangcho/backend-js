@@ -277,7 +277,7 @@ const getVideoById = asyncHandler(async (req, res) => {
   // Update response immediately
   video[0].views += 1;
 
-
+ const isOwner = req.user && video[0].owner._id.equals(req.user._id);
   // ── Watch history — only for logged in users, not the owner
   if (req.user && !isOwner) {
     // remove if already exists, then re-add at top (most recent first)
