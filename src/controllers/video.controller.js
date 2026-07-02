@@ -280,19 +280,45 @@ const getVideoById = asyncHandler(async (req, res) => {
  const isOwner = req.user && video[0].owner._id.equals(req.user._id);
   // ── Watch history — only for logged in users, not the owner
   if (req.user && !isOwner) {
-    // remove if already exists, then re-add at top (most recent first)
-    await User.findByIdAndUpdate(req.user._id, {
-      $pull: { watchHistory: videoId },
-    });
-    await User.findByIdAndUpdate(req.user._id, {
-      $push: {
-        watchHistory: {
-          $each: [videoId],
-          $position: 0, // insert at beginning so most recent is first
-        },
+  const videoObjectId = new mongoose.Types.ObjectId(videoId); // ✅ convert once
+
+  await User.findByIdAndUpdate(req.user._id, {
+    $pull: { watchHistory: videoObjectId },
+  });
+  await User.findByIdAndUpdate(req.user._id, {
+    $push: {
+      watchHistory: {
+        $each: [videoObjectId],
+        $position: 0,
       },
-    });
-  }
+    },
+  });
+
+  // verify it saved correctly
+  const check = await User.findById(req.user._id).select("watchHistory");
+  console.log("Watch history after save:", check.watchHistory);
+}
+Also your view deduplication is missing from this version — add it back:
+
+js
+// At top of file outside handler
+const recentViews = new Set();
+
+// Inside handler after video found
+const isOwner = req.user && video[0].owner._id.equals(req.user._id);
+const viewKey = `${req.user?._id ?? req.ip}:${videoId}`;
+
+if (!isOwner && !recentViews.has(viewKey)) {
+  recentViews.add(viewKey);
+  await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
+  video[0].views += 1;
+  setTimeout(() => recentViews.delete(viewKey), 24 * 60 * 60 * 1000);
+}
+The core issue is just the string vs ObjectId mismatch — $pull couldn't find the string "abc123" in an array of ObjectIds [ObjectId("abc123")] so nothing was ever saved.
+
+
+
+
 
   return res.status(200).json(
     new ApiResponse(
