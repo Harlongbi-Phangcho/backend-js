@@ -155,8 +155,9 @@ const publishAVideo = asyncHandler(async (req, res) => {
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
+  console.log("req.user", req.user)
   // validate videoId
-  if (!isValidObjectId(videoId)) {
+  if (!isValidObjectId(videoId)) {  
     throw new ApiError(400, "Invalid videoId");
   }
 
@@ -297,7 +298,7 @@ const getVideoById = asyncHandler(async (req, res) => {
 
   // verify it saved correctly
   const check = await User.findById(req.user._id).select("watchHistory");
-  console.log("Watch history after save:", check.watchHistory);
+  console.log("Watch history after saves:", check.watchHistory);
 }
 
 

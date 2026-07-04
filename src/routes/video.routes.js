@@ -9,10 +9,11 @@ import {
 } from "../controllers/video.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
+import { optionalVerifyJWT } from "../middlewares/optionalverifyJWT.middleware.js";
 
 const router = Router();
 // Public routes — no auth needed
-router.route("/:videoId").get(getVideoById);
+router.route("/:videoId").get(optionalVerifyJWT, getVideoById);
 router
   .route("/")
   .get(getAllVideos)
