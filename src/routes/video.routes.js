@@ -9,7 +9,7 @@ import {
 } from "../controllers/video.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
-import { optionalVerifyJWT } from "../middlewares/optionalverifyJWT.middleware.js";
+import { optionalVerifyJWT } from "../middlewares/optionalVerifyJWT.middleware.js";
 
 const router = Router();
 // Public routes — no auth needed
