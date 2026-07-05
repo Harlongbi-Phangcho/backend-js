@@ -2,8 +2,13 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import {errorHandler} from "./middlewares/error.middleware.js";
+import dotenv from "dotenv";
+dotenv.config();
+
+console.log("NODE_ENV =", process.env.NODE_ENV);
 
 const app = express();
+
 app.use(
   cors({
     origin: [

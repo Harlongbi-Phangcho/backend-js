@@ -301,24 +301,6 @@ const getVideoById = asyncHandler(async (req, res) => {
   console.log("Watch history after saves:", check.watchHistory);
 }
 
-
-
-
-// // Inside handler after video found
-// const isOwner = req.user && video[0].owner._id.equals(req.user._id);
-// const viewKey = `${req.user?._id ?? req.ip}:${videoId}`;
-
-// if (!isOwner && !recentViews.has(viewKey)) {
-//   recentViews.add(viewKey);
-//   await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
-//   video[0].views += 1;
-//   setTimeout(() => recentViews.delete(viewKey), 24 * 60 * 60 * 1000);
-// }
-
-
-
-
-
   return res.status(200).json(
     new ApiResponse(
       200,
