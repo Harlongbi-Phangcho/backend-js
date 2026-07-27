@@ -130,21 +130,18 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {
- 
-  const page = Math.max(1, Number(req.query.page)) || 1;
+  // Get all liked videos
+ const page = Math.max(1, Number(req.query.page)) || 1;
   const limit = Math.min(10, Number(req.query.limit)) || 10;
   const skip = (page - 1) * limit;
 
   const videos = await Like.aggregate([
-    // match likes by current user that are on videos 
     {
       $match: {
         likeBy: new mongoose.Types.ObjectId(req.user._id),
         video: { $ne: null },
       },
     },
-
-    // lookup full video document
     {
       $lookup: {
         from: "videos",
@@ -153,40 +150,44 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         as: "videoDetails",
       },
     },
-
-    // flatten — one doc per video
-    { $unwind: "$videoDetails" },
-
-    // replace root so we work with video fields directly
-    { $replaceRoot: { newRoot: "$videoDetails" } },
-
-    // only show published videos
-    { $match: { isPublish: true } },
-
-    // lookup owner details for each video
     {
-      $lookup: {
-        from: "users",
-        localField: "owner",
-        foreignField: "_id",
-        as: "ownerDetails",
-        pipeline: [
-          {
-            $project: { username: 1, avatar: 1 },
-          },
-        ],
-      },
+      $unwind: "$videoDetails",
     },
     {
-      $addFields: {
-        ownerDetails: { $first: "$ownerDetails" },
+  $replaceRoot: { newRoot: "$videoDetails" },
+},
+// lookup owner details for each video
+{
+  $lookup: {
+    from: "users",
+    localField: "owner",
+    foreignField: "_id",
+    as: "ownerDetails",
+    pipeline: [
+      {
+        $project: { username: 1, avatar: 1 },
       },
+    ],
+  },
+},
+{
+  $addFields: {
+    ownerDetails: { $first: "$ownerDetails" },
+  },
+},
+// only return published videos
+{
+  $match: { isPublish: true },
+},
+    {
+      $sort: { createdAt: -1 },
     },
-
-    { $sort: { createdAt: -1 } },
     { $skip: skip },
-    { $limit: limit },
+    {
+      $limit: limit,
+    },
   ]);
+
 
   return res
     .status(200)
