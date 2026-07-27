@@ -130,8 +130,9 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+ 
+  const page = Math.max(1, Number(req.query.page)) || 1;
+  const limit = Math.min(10, Number(req.query.limit)) || 10;
   const skip = (page - 1) * limit;
 
   const videos = await Like.aggregate([
