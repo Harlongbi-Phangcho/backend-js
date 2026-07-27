@@ -14,7 +14,7 @@ import { optionalVerifyJWT } from "../middlewares/optionalVerifyJWT.middleware.j
 const router = Router();
 // Public routes — no auth needed
 router.route("/:videoId").get(optionalVerifyJWT, getVideoById);
-router
+routergzzcv   
   .route("/")
   .get(getAllVideos)
   .post(
