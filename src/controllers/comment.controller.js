@@ -7,7 +7,7 @@ import { Video } from "../models/video.models.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
-  const { videoId } = req.params; 
+  const { videoId } = req.params;
   // Validate videoId
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video ID");
@@ -41,11 +41,48 @@ const getVideoComments = asyncHandler(async (req, res) => {
       },
     },
 
+    // lookup likes for each comment
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "comment",
+        as: "likes",
+      },
+    },
+
+    // compute likes count
     {
       $addFields: {
-        owner: {
-          $first: "$owner",
-        },
+        likesCount: { $size: "$likes" },
+      },
+    },
+
+    // isLiked — only if user is logged in
+    ...(req.user
+      ? [
+          {
+            $addFields: {
+              isLiked: {
+                $in: [
+                  new mongoose.Types.ObjectId(req.user._id),
+                  "$likes.likeBy",
+                ],
+              },
+            },
+          },
+        ]
+      : [
+          {
+            $addFields: {
+              isLiked: false,
+            },
+          },
+        ]),
+
+    {
+      $project: {
+        likes: 0,
       },
     },
 
