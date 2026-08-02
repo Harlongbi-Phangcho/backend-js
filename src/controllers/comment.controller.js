@@ -40,7 +40,12 @@ const getVideoComments = asyncHandler(async (req, res) => {
         ],
       },
     },
-
+    {
+      $addFields: {
+        owner: { $first: "$owner" },
+      },
+    },
+    
     // lookup likes for each comment
     {
       $lookup: {
