@@ -6,8 +6,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const createPlaylist = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
-  //TODO: create playlist
-
+  
   // validate name and description
   if (!name?.trim()) {
     throw new ApiError(400, "Playlist name is required");
@@ -94,11 +93,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
     },
   ]);
 
-  // validate user playlist
-  if (!playlists.length) {
-    throw new ApiError(404, "User playlists not found");
-  }
-
+  
   return res
     .status(200)
     .json(new ApiResponse(200, playlists, "Playlists fetched successfully"));
@@ -169,7 +164,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params;
 
   // validate playlist id and video id
-  if (!(playlistId || videoId)) {
+  if (!playlistId || !videoId) {
     throw new ApiError(400, "Playlist ID or video ID is required");
   }
 
@@ -210,7 +205,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params ?? {};
   // validate playlist and video id
-  if (!(playlistId || videoId)) {
+  if (!playlistId || !videoId) {
     throw new ApiError(400, "Playlist ID and video ID are required");
   }
 
